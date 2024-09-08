@@ -9,4 +9,5 @@ func (s *Server) Route() {
 	s.mux.Handle("GET /user/group", s.handleGetUserGroups())
 	s.mux.Handle("GET /user", s.handleGetUser())
 	s.mux.Handle("POST /user", s.handlePostUser())
+	s.mux.Handle("POST /login", s.handleLoginSignUp())
 }

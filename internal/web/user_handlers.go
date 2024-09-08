@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -118,6 +119,37 @@ func (s *Server) handleGetUserSubmission() http.HandlerFunc {
 			return
 		}
 		if _, err := w.Write(jsonBytes); err != nil {
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+		}
+	}
+}
+
+type loginRequest struct {
+	Name  string `json:"name"`
+	Email string `json:"email"`
+}
+
+func (s *Server) handleLoginSignUp() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req loginRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
+		u, err := s.userService.GetUserByEmail(r.Context(), req.Email)
+		if err != nil && !errors.Is(err, user.ErrUserNotFound) {
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+		if errors.Is(err, user.ErrUserNotFound) {
+			u = user.NewUser(req.Name, req.Email)
+			if u, err = s.userService.CreateUser(r.Context(), u); err != nil {
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+				return
+			}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(u); err != nil {
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 		}
 	}
