@@ -22,7 +22,7 @@ func main() {
 	}
 	pool, err := pgxpool.New(
 		context.Background(),
-		"host=localhost port=5432 user=postgres password="+password+" dbname=broccoli sslmode=disable",
+		"host=db port=5432 user=postgres password="+password+" dbname=broccoli sslmode=disable",
 	)
 	if err != nil {
 		logger.Error("Failed to connect to database", "error", err)
