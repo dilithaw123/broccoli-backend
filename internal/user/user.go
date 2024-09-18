@@ -1,6 +1,9 @@
 package user
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"strings"
+)
 
 type User struct {
 	ID    uint64 `json:"id"    db:"id"`
@@ -25,7 +28,7 @@ type DBUserSubmission struct {
 func NewUser(name, email string) User {
 	return User{
 		Name:  name,
-		Email: email,
+		Email: strings.ToLower(email),
 	}
 }
 

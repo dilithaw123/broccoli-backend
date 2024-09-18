@@ -44,3 +44,39 @@ func (s *Server) handlePostGroup() http.HandlerFunc {
 		w.WriteHeader(http.StatusCreated)
 	}
 }
+
+func (s *Server) handleAddUserToGroup() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		type request struct {
+			UserEmail    string `json:"email"`
+			GroupID      uint64 `json:"group_id"`
+			RequestEmail string `json:"request_email"`
+		}
+		var req request
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		userAllowed, err := s.groupService.GroupContainsUser(
+			r.Context(),
+			req.GroupID,
+			req.RequestEmail,
+		)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if !userAllowed {
+			http.Error(w, "user not allowed", http.StatusForbidden)
+			return
+		}
+
+		err = s.groupService.AddUserToGroup(r.Context(), req.GroupID, req.UserEmail)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}
+}

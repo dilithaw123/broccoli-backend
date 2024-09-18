@@ -12,7 +12,9 @@ var (
 
 type GroupService interface {
 	CreateUpdateGroup(ctx context.Context, g Group, userEmail string) error
-	GetGroup(ctx context.Context, id int) (Group, error)
+	GetGroup(ctx context.Context, id uint64) (Group, error)
 	GetGroupByName(ctx context.Context, name string) (Group, error)
 	GetGroupsByEmail(ctx context.Context, email string) ([]Group, error)
+	GroupContainsUser(ctx context.Context, groupID uint64, userEmail string) (bool, error)
+	AddUserToGroup(ctx context.Context, groupID uint64, userEmail string) error
 }

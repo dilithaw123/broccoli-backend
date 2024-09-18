@@ -3,6 +3,7 @@ package group
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/georgysavva/scany/v2/pgxscan"
 	"github.com/jackc/pgx/v5"
@@ -27,6 +28,7 @@ func (repo *PgGroupRepo) CreateUpdateGroup(
 ) error {
 	conn, err := repo.db.Acquire(ctx)
 	defer conn.Release()
+	userEmail = strings.ToLower(userEmail)
 	if err != nil {
 		return err
 	}
@@ -49,7 +51,7 @@ func (repo *PgGroupRepo) CreateUpdateGroup(
 	return nil
 }
 
-func (repo *PgGroupRepo) GetGroup(ctx context.Context, id int) (Group, error) {
+func (repo *PgGroupRepo) GetGroup(ctx context.Context, id uint64) (Group, error) {
 	var g Group
 	conn, err := repo.db.Acquire(ctx)
 	defer conn.Release()
@@ -74,14 +76,9 @@ func (repo *PgGroupRepo) GetGroup(ctx context.Context, id int) (Group, error) {
 
 func (repo *PgGroupRepo) GetGroupByName(ctx context.Context, name string) (Group, error) {
 	var g Group
-	conn, err := repo.db.Acquire(ctx)
-	defer conn.Release()
-	if err != nil {
-		return g, err
-	}
-	err = pgxscan.Get(
+	err := pgxscan.Get(
 		ctx,
-		conn,
+		repo.db,
 		&g,
 		"SELECT * FROM groups WHERE name = $1",
 		name,
@@ -99,6 +96,7 @@ func (repo *PgGroupRepo) GetGroupsByEmail(ctx context.Context, email string) ([]
 	var groups []Group
 	conn, err := repo.db.Acquire(ctx)
 	defer conn.Release()
+	email = strings.ToLower(email)
 	if err != nil {
 		return groups, err
 	}
@@ -116,4 +114,46 @@ func (repo *PgGroupRepo) GetGroupsByEmail(ctx context.Context, email string) ([]
 		return groups, nil
 	}
 	return groups, nil
+}
+
+func (repo *PgGroupRepo) GroupContainsUser(
+	ctx context.Context,
+	groupID uint64,
+	userEmail string,
+) (bool, error) {
+	userEmail = strings.ToLower(userEmail)
+	var valid bool
+	err := pgxscan.Get(
+		ctx,
+		repo.db,
+		&valid,
+		"SELECT $1 = ANY(allowed_emails) FROM groups WHERE id = $2",
+		userEmail,
+		groupID,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, ErrGroupNotFound
+		}
+		return false, err
+	}
+	return valid, nil
+}
+
+func (repo *PgGroupRepo) AddUserToGroup(
+	ctx context.Context,
+	groupID uint64,
+	userEmail string,
+) error {
+	userEmail = strings.ToLower(userEmail)
+	_, err := repo.db.Exec(
+		ctx,
+		`UPDATE groups SET allowed_emails = ARRAY_APPEND(allowed_emails, $1) WHERE id = $2 AND $1 <> ALL(allowed_emails)`,
+		userEmail,
+		groupID,
+	)
+	if err != nil {
+		return err
+	}
+	return nil
 }
