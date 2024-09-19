@@ -7,14 +7,14 @@ CREATE TABLE users (
 CREATE TABLE groups (
   id BIGSERIAL PRIMARY KEY,
   name TEXT,
-  allowed_emails TEXT[]
+  allowed_emails TEXT[],
+  timezone TEXT NOT NULL
 );
 
 CREATE TABLE sessions (
   id BIGSERIAL PRIMARY KEY,
   group_id BIGINT REFERENCES groups(id),
-  create_date DATE,
-  UNIQUE (group_id, create_date)
+  create_date TIMESTAMP WITH TIME ZONE NOT NULL,
 );
 
 CREATE TABLE user_submissions (

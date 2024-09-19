@@ -75,13 +75,29 @@ func (repo *PgSessionRepo) CreateSession(ctx context.Context, s Session) (uint64
 	if err != nil {
 		return 0, err
 	}
-
 	var id uint64
 	err = pgxscan.Get(
 		ctx,
 		conn,
 		&id,
-		"INSERT INTO sessions (group_id, create_date) VALUES ($1, $2) ON CONFLICT (group_id, create_date) DO UPDATE SET group_id = excluded.group_id RETURNING id",
+		`SELECT s.id from sessions s
+		JOIN groups g ON s.group_id = g.id
+		WHERE s.group_id = $1
+		AND (s.create_date at time zone g.timezone)::date = ($2 at time zone g.timezone)::date`,
+		s.GroupID,
+		s.CreateDate,
+	)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return 0, err
+	}
+	if id != 0 {
+		return id, nil
+	}
+	err = pgxscan.Get(
+		ctx,
+		conn,
+		&id,
+		"INSERT INTO sessions (group_id, create_date) VALUES ($1, $2) RETURNING id",
 		s.GroupID,
 		s.CreateDate,
 	)

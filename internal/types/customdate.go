@@ -8,8 +8,12 @@ import (
 
 type CustomTime time.Time
 
+const (
+	timeFormat = time.RFC3339
+)
+
 func (ct CustomTime) String() string {
-	return time.Time(ct).Format(time.DateOnly)
+	return time.Time(ct).Format(timeFormat)
 }
 
 func (ct *CustomTime) Scan(value interface{}) error {
@@ -25,12 +29,9 @@ func (ct *CustomTime) Scan(value interface{}) error {
 	case time.Time:
 		t = src
 	case []byte:
-		t, err = time.Parse(time.DateOnly, string(src))
+		t, err = time.Parse(timeFormat, string(src))
 	case string:
-		if len(src) < 10 {
-			return errors.New("invalid time format")
-		}
-		t, err = time.Parse(time.DateOnly, src[:10])
+		t, err = time.Parse(timeFormat, src)
 	default:
 		return errors.New("invalid type")
 	}
@@ -43,17 +44,17 @@ func (ct *CustomTime) Scan(value interface{}) error {
 	return nil
 }
 
-func (ct *CustomTime) Value() (interface{}, error) {
-	return time.Time(*ct), nil
+func (ct CustomTime) Value() (interface{}, error) {
+	return ct.String(), nil
 }
 
 func (ct CustomTime) MarshalJSON() ([]byte, error) {
-	val := time.Time(ct).Format(time.DateOnly)
+	val := time.Time(ct).Format(timeFormat)
 	return json.Marshal(val)
 }
 
 func (ct *CustomTime) UnmarshalJSON(b []byte) error {
-	t, err := time.Parse(time.DateOnly, string(b))
+	t, err := time.Parse(timeFormat, string(b))
 	if err != nil {
 		return err
 	}
