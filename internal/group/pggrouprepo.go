@@ -29,6 +29,9 @@ func (repo *PgGroupRepo) CreateUpdateGroup(
 	conn, err := repo.db.Acquire(ctx)
 	defer conn.Release()
 	userEmail = strings.ToLower(userEmail)
+	for i, email := range g.AllowedEmails {
+		g.AllowedEmails[i] = strings.ToLower(email)
+	}
 	if err != nil {
 		return err
 	}
@@ -40,7 +43,7 @@ func (repo *PgGroupRepo) CreateUpdateGroup(
 		WHEN MATCHED THEN
 			UPDATE SET allowed_emails = $3
 		WHEN NOT MATCHED THEN
-			INSERT (name, allowed_emails) VALUES ($1, $2, $3)`,
+			INSERT (name, allowed_emails) VALUES ($1, $3)`,
 		g.Name,
 		userEmail,
 		g.AllowedEmails,
@@ -151,6 +154,42 @@ func (repo *PgGroupRepo) AddUserToGroup(
 		`UPDATE groups SET allowed_emails = ARRAY_APPEND(allowed_emails, $1) WHERE id = $2 AND $1 <> ALL(allowed_emails)`,
 		userEmail,
 		groupID,
+	)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (repo *PgGroupRepo) DeleteGroup(ctx context.Context, id uint64, userEmail string) error {
+	conn, err := repo.db.Acquire(ctx)
+	defer conn.Release()
+	if err != nil {
+		return err
+	}
+	userEmail = strings.ToLower(userEmail)
+	var isAllowed bool
+	err = pgxscan.Get(
+		ctx,
+		conn,
+		&isAllowed,
+		"SELECT $1 = ANY(allowed_emails) FROM groups WHERE id = $2",
+		userEmail,
+		id,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrGroupNotFound
+		}
+		return err
+	}
+	if !isAllowed {
+		return ErrUserNotPermitted
+	}
+	_, err = conn.Exec(
+		ctx,
+		"DELETE FROM groups WHERE id = $1",
+		id,
 	)
 	if err != nil {
 		return err

@@ -13,14 +13,14 @@ CREATE TABLE groups (
 
 CREATE TABLE sessions (
   id BIGSERIAL PRIMARY KEY,
-  group_id BIGINT REFERENCES groups(id),
-  create_date TIMESTAMP WITH TIME ZONE NOT NULL,
+  group_id BIGINT REFERENCES groups(id) ON DELETE CASCADE,
+  create_date TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
 CREATE TABLE user_submissions (
   id BIGSERIAL PRIMARY KEY,
-  user_id BIGINT REFERENCES users(id),
-  session_id BIGINT REFERENCES sessions(id),
+  user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+  session_id BIGINT REFERENCES sessions(id) ON DELETE CASCADE,
   yesterday TEXT[],
   today TEXT[],
   blockers TEXT[]

@@ -57,7 +57,6 @@ func (s *Server) handleAddUserToGroup() http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-
 		userAllowed, err := s.groupService.GroupContainsUser(
 			r.Context(),
 			req.GroupID,
@@ -75,6 +74,32 @@ func (s *Server) handleAddUserToGroup() http.HandlerFunc {
 		err = s.groupService.AddUserToGroup(r.Context(), req.GroupID, req.UserEmail)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
+func (s *Server) handleDeleteGroup() http.HandlerFunc {
+	type request struct {
+		GroupId   uint64 `json:"group_id"`
+		UserEmail string `json:"user_email"`
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req request
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Bad request body", http.StatusBadRequest)
+			return
+		}
+		if err := s.groupService.DeleteGroup(r.Context(), req.GroupId, req.UserEmail); err != nil {
+			switch err {
+			case group.ErrGroupNotFound:
+				http.Error(w, "Group not found", http.StatusNotFound)
+			case group.ErrUserNotPermitted:
+				http.Error(w, "User not permitted", http.StatusForbidden)
+			default:
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
 			return
 		}
 		w.WriteHeader(http.StatusOK)
