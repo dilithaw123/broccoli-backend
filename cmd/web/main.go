@@ -15,6 +15,11 @@ import (
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	secret, ok := os.LookupEnv("SECRET_KEY")
+	if !ok {
+		logger.Error("SECRET_KEY environment variable is required")
+		os.Exit(1)
+	}
 	password, ok := os.LookupEnv("POSTGRES_PASSWORD")
 	if !ok {
 		logger.Error("PASSWORD environment variable is required")
@@ -45,6 +50,7 @@ func main() {
 		web.WithGroupService(groupService),
 		web.WithSessionService(sessionService),
 		web.WithMux(http.NewServeMux()),
+		web.WithSecretKey(secret),
 	)
 	if err := server.Start(":5050"); err != nil {
 		slog.Error("Failed to start server", "error", err)

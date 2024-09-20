@@ -17,6 +17,8 @@ type Server struct {
 	sessionService session.SessionService
 	mux            *http.ServeMux
 	logger         *slog.Logger
+	refTokenMap    map[string]string
+	secretKey      string
 }
 
 type BuilderOpts func(*Server)
@@ -57,8 +59,16 @@ func WithMux(mux *http.ServeMux) BuilderOpts {
 	}
 }
 
+func WithSecretKey(secretKey string) BuilderOpts {
+	return func(s *Server) {
+		s.secretKey = secretKey
+	}
+}
+
 func NewServer(db *pgxpool.Pool, opts ...BuilderOpts) *Server {
-	s := &Server{}
+	s := &Server{
+		refTokenMap: make(map[string]string),
+	}
 	for _, opt := range opts {
 		opt(s)
 	}
@@ -68,9 +78,10 @@ func NewServer(db *pgxpool.Pool, opts ...BuilderOpts) *Server {
 func (s *Server) Start(port string) error {
 	s.Route()
 	s.logger.Info("Starting server", "addr", port)
+	handler := s.MiddlewareLogIP(s.mux)
 	server := http.Server{
 		Addr:    port,
-		Handler: s.MiddlewareLogIP(s.mux),
+		Handler: handler,
 	}
 	return server.ListenAndServe()
 }

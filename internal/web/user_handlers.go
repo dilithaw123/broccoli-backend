@@ -113,23 +113,24 @@ func (s *Server) handleGetUserSubmission() http.HandlerFunc {
 			}
 		}
 		w.Header().Set("Content-Type", "application/json")
-		jsonBytes, err := json.Marshal(sub)
-		if err != nil {
-			http.Error(w, "internal server error", http.StatusInternalServerError)
-			return
-		}
-		if _, err := w.Write(jsonBytes); err != nil {
+		if err := json.NewEncoder(w).Encode(sub); err != nil {
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 		}
 	}
 }
 
-type loginRequest struct {
-	Name  string `json:"name"`
-	Email string `json:"email"`
-}
-
 func (s *Server) handleLoginSignUp() http.HandlerFunc {
+	type loginRequest struct {
+		Name  string `json:"name"`
+		Email string `json:"email"`
+	}
+
+	type loginResponse struct {
+		User         user.User `json:"user"`
+		RefreshToken string    `json:"refresh_token"`
+		AccessToken  string    `json:"access_token"`
+	}
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req loginRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -149,7 +150,48 @@ func (s *Server) handleLoginSignUp() http.HandlerFunc {
 			}
 		}
 		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(u); err != nil {
+		refreshToken := GenerateRefreshToken()
+		accessToken := GenerateAccessToken(s.secretKey)
+		s.refTokenMap[u.Email] = refreshToken
+		resp := loginResponse{
+			User:         u,
+			RefreshToken: refreshToken,
+			AccessToken:  accessToken,
+		}
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+		}
+	}
+}
+
+// Sends ok response. If it reaches this endpoint this must mean the middleware has authenticated the user.
+func (s *Server) handleIsAuthorized() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+	}
+}
+
+// If user's email exists in map with matching refresh token, send a new access token
+func (s *Server) handleNewAccessToken() http.HandlerFunc {
+	type request struct {
+		Email        string `json:"email"`
+		RefreshToken string `json:"refresh_token"`
+	}
+	type response struct {
+		AccessToken string `json:"access_token"`
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req request
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		if val, ok := s.refTokenMap[req.Email]; !ok || req.RefreshToken != val {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		resp := response{AccessToken: GenerateAccessToken(s.secretKey)}
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 		}
 	}

@@ -10,3 +10,27 @@ func (s *Server) MiddlewareLogIP(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
+
+func (s *Server) MiddlewareAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authcookie, err := r.Cookie("access_token")
+		if err != nil || authcookie == nil {
+			s.logger.Debug("Error getting access token", "Error", err)
+			s.logger.Info("Unauthorized request", "ip", r.RemoteAddr)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if !ParseAndValidateToken(authcookie.Value, s.secretKey) {
+			s.logger.Info(
+				"Unauthorized access token",
+				"ip",
+				r.RemoteAddr,
+				"token",
+				authcookie.Value,
+			)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}

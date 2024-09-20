@@ -72,6 +72,7 @@ func (repo *PgUserRepo) GetUserByID(ctx context.Context, id uint64) (User, error
 func (repo *PgUserRepo) GetUserByEmail(ctx context.Context, email string) (User, error) {
 	var u User
 	conn, err := repo.db.Acquire(ctx)
+	defer conn.Release()
 	if err != nil {
 		return User{}, err
 	}
