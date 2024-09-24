@@ -32,6 +32,7 @@ services:
     environment:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - SECRET_KEY=${SECRET_KEY}
+      - API_KEY=${API_KEY}
     depends_on:
       - migrator
     networks:

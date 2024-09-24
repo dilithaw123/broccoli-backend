@@ -17,6 +17,6 @@ func (s *Server) Route() {
 	innerMux.Handle("POST /user", s.handlePostUser())
 	// User without access token needs to be able to hit these endpoints
 	s.mux.Handle("POST /user/refresh", s.handleNewAccessToken())
-	s.mux.Handle("POST /login", s.handleLoginSignUp())
+	s.mux.Handle("POST /login", s.MiddlewareAPIKey(s.handleLoginSignUp()))
 	s.mux.Handle("/", s.MiddlewareAuth(innerMux))
 }

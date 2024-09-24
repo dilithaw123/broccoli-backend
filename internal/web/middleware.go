@@ -34,3 +34,14 @@ func (s *Server) MiddlewareAuth(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
+
+func (s *Server) MiddlewareAPIKey(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		apiKey, ok := r.Header["X-Api-Key"]
+		if !ok || len(apiKey) == 0 || apiKey[0] != s.apiKey {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}

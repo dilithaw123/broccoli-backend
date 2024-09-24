@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/dilithaw123/broccoli-backend/internal/user"
 )
@@ -27,6 +28,7 @@ func (s *Server) handleGetUser() http.HandlerFunc {
 			}
 			u, err = s.userService.GetUserByID(r.Context(), id)
 		} else {
+			email := strings.ToLower(email)
 			u, err = s.userService.GetUserByEmail(r.Context(), email)
 		}
 		if err != nil {
@@ -137,8 +139,10 @@ func (s *Server) handleLoginSignUp() http.HandlerFunc {
 			http.Error(w, "invalid JSON", http.StatusBadRequest)
 			return
 		}
+		req.Email = strings.ToLower(req.Email)
 		u, err := s.userService.GetUserByEmail(r.Context(), req.Email)
 		if err != nil && !errors.Is(err, user.ErrUserNotFound) {
+			s.logger.Error("Login/SignUp", "Error", err)
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		}

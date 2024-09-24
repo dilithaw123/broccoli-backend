@@ -15,16 +15,25 @@ import (
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
 	secret, ok := os.LookupEnv("SECRET_KEY")
 	if !ok {
 		logger.Error("SECRET_KEY environment variable is required")
 		os.Exit(1)
 	}
+
+	apikey, ok := os.LookupEnv("API_KEY")
+	if !ok {
+		logger.Error("API_KEY environment variable is required")
+		os.Exit(1)
+	}
+
 	password, ok := os.LookupEnv("POSTGRES_PASSWORD")
 	if !ok {
 		logger.Error("PASSWORD environment variable is required")
 		os.Exit(1)
 	}
+
 	pool, err := pgxpool.New(
 		context.Background(),
 		"host=db port=5432 user=postgres password="+password+" dbname=broccoli sslmode=disable",
@@ -37,6 +46,7 @@ func main() {
 		logger.Error("Failed to ping database", "error", err)
 		os.Exit(1)
 	}
+
 	logger.Info("Connected to database")
 	defer pool.Close()
 	userService := user.NewPgUserRepo(pool)
@@ -51,6 +61,7 @@ func main() {
 		web.WithSessionService(sessionService),
 		web.WithMux(http.NewServeMux()),
 		web.WithSecretKey(secret),
+		web.WithApiKey(apikey),
 	)
 	if err := server.Start(":5050"); err != nil {
 		slog.Error("Failed to start server", "error", err)

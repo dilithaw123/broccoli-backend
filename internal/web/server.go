@@ -19,50 +19,7 @@ type Server struct {
 	logger         *slog.Logger
 	refTokenMap    map[string]string
 	secretKey      string
-}
-
-type BuilderOpts func(*Server)
-
-func WithLogger(logger *slog.Logger) BuilderOpts {
-	return func(s *Server) {
-		s.logger = logger
-	}
-}
-
-func WithDB(db *pgxpool.Pool) BuilderOpts {
-	return func(s *Server) {
-		s.db = db
-	}
-}
-
-func WithUserService(userService user.UserService) BuilderOpts {
-	return func(s *Server) {
-		s.userService = userService
-	}
-}
-
-func WithGroupService(groupService group.GroupService) BuilderOpts {
-	return func(s *Server) {
-		s.groupService = groupService
-	}
-}
-
-func WithSessionService(sessionService session.SessionService) BuilderOpts {
-	return func(s *Server) {
-		s.sessionService = sessionService
-	}
-}
-
-func WithMux(mux *http.ServeMux) BuilderOpts {
-	return func(s *Server) {
-		s.mux = mux
-	}
-}
-
-func WithSecretKey(secretKey string) BuilderOpts {
-	return func(s *Server) {
-		s.secretKey = secretKey
-	}
+	apiKey         string
 }
 
 func NewServer(db *pgxpool.Pool, opts ...BuilderOpts) *Server {
