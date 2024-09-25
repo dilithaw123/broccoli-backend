@@ -28,8 +28,7 @@ func (s *Server) handleGetUser() http.HandlerFunc {
 			}
 			u, err = s.userService.GetUserByID(r.Context(), id)
 		} else {
-			email := strings.ToLower(email)
-			u, err = s.userService.GetUserByEmail(r.Context(), email)
+			u, err = s.userService.GetUserByEmail(r.Context(), strings.ToLower(email))
 		}
 		if err != nil {
 			if err == user.ErrUserNotFound {
@@ -51,13 +50,18 @@ func (s *Server) handleGetUser() http.HandlerFunc {
 }
 
 func (s *Server) handlePostUser() http.HandlerFunc {
+	type request struct {
+		Name  string `json:"name"`
+		Email string `json:"email"`
+	}
 	return func(w http.ResponseWriter, r *http.Request) {
-		var u user.User
-		if err := json.NewDecoder(r.Body).Decode(&u); err != nil {
+		var req request
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "invalid JSON", http.StatusBadRequest)
 			return
 		}
-		u, err := s.userService.CreateUser(r.Context(), u)
+		u := user.NewUser(req.Name, req.Email)
+		_, err := s.userService.CreateUser(r.Context(), u)
 		if err != nil {
 			if err == user.ErrUserAlreadyExists {
 				http.Error(w, "user already exists", http.StatusConflict)
@@ -67,6 +71,7 @@ func (s *Server) handlePostUser() http.HandlerFunc {
 				return
 			}
 		}
+		w.WriteHeader(200)
 	}
 }
 

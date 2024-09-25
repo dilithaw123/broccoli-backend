@@ -20,38 +20,34 @@ func NewPgGroupRepo(db *pgxpool.Pool) *PgGroupRepo {
 	return &PgGroupRepo{db: db}
 }
 
-// If email is not in allowed_emails, insert or update the group
-func (repo *PgGroupRepo) CreateUpdateGroup(
-	ctx context.Context,
-	g Group,
-	userEmail string,
-) error {
+func (repo *PgGroupRepo) CreateGroup(ctx context.Context, g Group) error {
 	conn, err := repo.db.Acquire(ctx)
 	defer conn.Release()
-	userEmail = strings.ToLower(userEmail)
-	for i, email := range g.AllowedEmails {
-		g.AllowedEmails[i] = strings.ToLower(email)
-	}
 	if err != nil {
 		return err
+	}
+	var exists bool
+	err = pgxscan.Get(
+		ctx,
+		conn,
+		&exists,
+		"SELECT 1 FROM groups WHERE name = $1",
+		g.Name,
+	)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	if exists {
+		return ErrGroupExists
 	}
 	_, err = conn.Exec(
 		ctx,
-		`MERGE into groups g
-		USING (SELECT $1::text as name) s
-		ON g.name = s.name AND $2 = ANY(g.allowed_emails)
-		WHEN MATCHED THEN
-			UPDATE SET allowed_emails = $3
-		WHEN NOT MATCHED THEN
-			INSERT (name, allowed_emails) VALUES ($1, $3)`,
+		"INSERT INTO groups (name, allowed_emails,timezone) VALUES ($1, $2, $3)",
 		g.Name,
-		userEmail,
 		g.AllowedEmails,
+		g.Timezone,
 	)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 func (repo *PgGroupRepo) GetGroup(ctx context.Context, id uint64) (Group, error) {
@@ -99,7 +95,6 @@ func (repo *PgGroupRepo) GetGroupsByEmail(ctx context.Context, email string) ([]
 	var groups []Group
 	conn, err := repo.db.Acquire(ctx)
 	defer conn.Release()
-	email = strings.ToLower(email)
 	if err != nil {
 		return groups, err
 	}
@@ -124,7 +119,6 @@ func (repo *PgGroupRepo) GroupContainsUser(
 	groupID uint64,
 	userEmail string,
 ) (bool, error) {
-	userEmail = strings.ToLower(userEmail)
 	var valid bool
 	err := pgxscan.Get(
 		ctx,
@@ -167,7 +161,6 @@ func (repo *PgGroupRepo) DeleteGroup(ctx context.Context, id uint64, userEmail s
 	if err != nil {
 		return err
 	}
-	userEmail = strings.ToLower(userEmail)
 	var isAllowed bool
 	err = pgxscan.Get(
 		ctx,

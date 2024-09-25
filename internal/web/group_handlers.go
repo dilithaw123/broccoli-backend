@@ -3,6 +3,7 @@ package web
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/dilithaw123/broccoli-backend/internal/group"
 )
@@ -10,7 +11,7 @@ import (
 func (s *Server) handleGetUserGroups() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		email := r.URL.Query().Get("email")
-		groups, err := s.groupService.GetGroupsByEmail(r.Context(), email)
+		groups, err := s.groupService.GetGroupsByEmail(r.Context(), strings.ToLower(email))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -26,22 +27,26 @@ func (s *Server) handleGetUserGroups() http.HandlerFunc {
 }
 
 func (s *Server) handlePostGroup() http.HandlerFunc {
+	type request group.Group
 	return func(w http.ResponseWriter, r *http.Request) {
-		type request struct {
-			Group group.Group `json:"group"`
-			Email string      `json:"email"`
-		}
 		var req request
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		err := s.groupService.CreateUpdateGroup(r.Context(), req.Group, req.Email)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+		for ind, email := range req.AllowedEmails {
+			req.AllowedEmails[ind] = strings.ToLower(email)
+		}
+		if err := s.groupService.CreateGroup(r.Context(), group.Group(req)); err != nil {
+			switch err {
+			case group.ErrGroupExists:
+				http.Error(w, err.Error(), http.StatusBadRequest)
+			default:
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
 			return
 		}
-		w.WriteHeader(http.StatusCreated)
+		w.WriteHeader(201)
 	}
 }
 
@@ -60,7 +65,7 @@ func (s *Server) handleAddUserToGroup() http.HandlerFunc {
 		userAllowed, err := s.groupService.GroupContainsUser(
 			r.Context(),
 			req.GroupID,
-			req.RequestEmail,
+			strings.ToLower(req.RequestEmail),
 		)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -71,7 +76,11 @@ func (s *Server) handleAddUserToGroup() http.HandlerFunc {
 			return
 		}
 
-		err = s.groupService.AddUserToGroup(r.Context(), req.GroupID, req.UserEmail)
+		err = s.groupService.AddUserToGroup(
+			r.Context(),
+			req.GroupID,
+			strings.ToLower(req.UserEmail),
+		)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -91,7 +100,7 @@ func (s *Server) handleDeleteGroup() http.HandlerFunc {
 			http.Error(w, "Bad request body", http.StatusBadRequest)
 			return
 		}
-		if err := s.groupService.DeleteGroup(r.Context(), req.GroupId, req.UserEmail); err != nil {
+		if err := s.groupService.DeleteGroup(r.Context(), req.GroupId, strings.ToLower(req.UserEmail)); err != nil {
 			switch err {
 			case group.ErrGroupNotFound:
 				http.Error(w, "Group not found", http.StatusNotFound)
