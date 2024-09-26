@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"errors"
+	"math/rand/v2"
 
 	"github.com/georgysavva/scany/v2/pgxscan"
 	"github.com/jackc/pgx/v5"
@@ -126,10 +127,10 @@ func (repo *PgUserRepo) GetAllUserSubmissionsForSession(
 ) ([]DBUserSubmission, error) {
 	var us []DBUserSubmission
 	conn, err := repo.db.Acquire(ctx)
+	defer conn.Release()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Release()
 	err = pgxscan.Select(
 		ctx,
 		conn,
@@ -143,6 +144,23 @@ func (repo *PgUserRepo) GetAllUserSubmissionsForSession(
 		}
 		return nil, err
 	}
+
+	var shuffle_seed uint64
+	err = pgxscan.Get(
+		ctx,
+		conn,
+		&shuffle_seed,
+		"SELECT shuffle_seed FROM sessions WHERE id = $1",
+		sessionId,
+	)
+	if err != nil {
+		return us, err
+	}
+	src := rand.NewPCG(shuffle_seed, shuffle_seed)
+	r := rand.New(src)
+	r.Shuffle(len(us), func(i, j int) {
+		us[i], us[j] = us[j], us[i]
+	})
 	return us, nil
 }
 

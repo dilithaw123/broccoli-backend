@@ -97,9 +97,25 @@ func (repo *PgSessionRepo) CreateSession(ctx context.Context, s Session) (uint64
 		ctx,
 		conn,
 		&id,
-		"INSERT INTO sessions (group_id, create_date) VALUES ($1, $2) RETURNING id",
+		"INSERT INTO sessions (group_id, create_date, shuffle_seed) VALUES ($1, $2, $3) RETURNING id",
 		s.GroupID,
 		s.CreateDate,
+		s.ShuffleSeed,
 	)
 	return id, err
+}
+
+func (repo *PgSessionRepo) UpdateShuffle(ctx context.Context, id uint64, seed uint16) error {
+	conn, err := repo.db.Acquire(ctx)
+	defer conn.Release()
+	if err != nil {
+		return err
+	}
+	_, err = conn.Exec(
+		ctx,
+		"UPDATE sessions SET shuffle_seed = $2 WHERE ID = $1",
+		id,
+		seed,
+	)
+	return err
 }

@@ -5,6 +5,7 @@ import "net/http"
 func (s *Server) Route() {
 	innerMux := http.NewServeMux()
 	innerMux.Handle("GET /ws/session/{id}", s.handleSessionWSConnection())
+	innerMux.Handle("POST /session/{id}/shuffle", s.handleShuffleSession())
 	innerMux.Handle("POST /session", s.handlePostSession())
 	innerMux.Handle("POST /group/user/add", s.handleAddUserToGroup())
 	innerMux.Handle("DELETE /group", s.handleDeleteGroup())
