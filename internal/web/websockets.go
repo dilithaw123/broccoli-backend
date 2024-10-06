@@ -27,6 +27,7 @@ func (s *Server) handleSessionWSConnection() http.HandlerFunc {
 		}
 		s.logger.Info("New websocket connection", "ip", r.RemoteAddr)
 		s.addToSessionMap(sessionId, conn)
+		conn.CloseRead(r.Context())
 	}
 }
 
@@ -45,12 +46,15 @@ func (s *Server) clientUpdate() {
 					continue
 				}
 				for conn := range v {
-					if err := wsjson.Write(ctx, conn, sub); err != nil {
-						s.logger.Error("Failed to write message", "error", err)
+					if err := conn.Ping(ctx); err != nil {
 						if errors.As(err, &websocket.CloseError{}) {
 							s.logger.Error("Client has closed websocket, will delete from session")
 							delete(v, conn)
 						}
+						continue
+					}
+					if err := wsjson.Write(ctx, conn, sub); err != nil {
+						s.logger.Error("Failed to write message", "error", err)
 						continue
 					}
 				}
