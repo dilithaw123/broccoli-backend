@@ -13,44 +13,58 @@ import (
 func (s *Server) handleSessionWSConnection() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		session := r.PathValue("id")
-		session_id, err := strconv.ParseUint(session, 10, 64)
+		sessionId, err := strconv.ParseUint(session, 10, 64)
 		if err != nil {
 			s.logger.Error("Failed to parse session id", "error", err)
 			http.Error(w, "missing session_id parameter", http.StatusBadRequest)
 			return
 		}
-		conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{InsecureSkipVerify: true})
+		conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{})
 		if err != nil {
 			s.logger.Error("Failed to upgrade connection", "error", err)
 			return
 		}
 		s.logger.Info("New websocket connection", "ip", r.RemoteAddr)
-		go s.pollSend(conn, session_id)
+		s.addToSessionMap(sessionId, conn)
 	}
 }
 
-// pollSend sends the latest submissions to the client every second
-func (s *Server) pollSend(ws *websocket.Conn, session_id uint64) {
-	defer ws.Close(websocket.StatusGoingAway, "it's over")
-	ctx := ws.CloseRead(context.Background())
+func (s *Server) clientUpdate() {
 	for {
-		select {
-		case <-ctx.Done():
-			s.logger.Info("Connection closed")
-			return
-		case <-time.After(time.Second):
-			sub, err := s.userService.GetAllUserSubmissionsForSession(
-				context.Background(),
-				session_id,
-			)
-			if err != nil {
-				s.logger.Error("Failed to get user submissions", "error", err)
-				return
+		time.After(time.Second)
+		func() {
+			s.sessions.Lock()
+			defer s.sessions.Unlock()
+			for k, v := range s.sessions.room {
+				ctx := context.Background()
+				ctx = context.WithValue(ctx, "sessionId", k)
+				sub, err := s.userService.GetAllUserSubmissionsForSession(ctx, k)
+				if err != nil {
+					s.logger.Error("Failed to get user submissions", "error", err, "sessionId", k)
+					continue
+				}
+				for conn := range v {
+					if err := wsjson.Write(ctx, conn, sub); err != nil {
+						s.logger.Error("Failed to write message", "error", err)
+						delete(v, conn)
+						continue
+					}
+				}
+				if len(v) == 0 {
+					delete(s.sessions.room, k)
+				}
 			}
-			if err := wsjson.Write(context.Background(), ws, sub); err != nil {
-				s.logger.Error("Failed to write message", "error", err)
-				return
-			}
-		}
+		}()
+	}
+}
+
+func (s *Server) addToSessionMap(sessionId uint64, ws *websocket.Conn) {
+	s.sessions.Lock()
+	defer s.sessions.Unlock()
+	if room, ok := s.sessions.room[sessionId]; ok {
+		room[ws] = struct{}{}
+	} else {
+		room := make(map[*websocket.Conn]struct{})
+		s.sessions.room[sessionId] = room
 	}
 }
