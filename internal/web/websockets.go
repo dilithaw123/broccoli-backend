@@ -31,7 +31,7 @@ func (s *Server) handleSessionWSConnection() http.HandlerFunc {
 
 func (s *Server) clientUpdate() {
 	for {
-		time.After(time.Second)
+		time.Sleep(time.Second)
 		func() {
 			s.sessions.Lock()
 			defer s.sessions.Unlock()
