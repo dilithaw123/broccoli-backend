@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -46,7 +47,10 @@ func (s *Server) clientUpdate() {
 				for conn := range v {
 					if err := wsjson.Write(ctx, conn, sub); err != nil {
 						s.logger.Error("Failed to write message", "error", err)
-						delete(v, conn)
+						if errors.As(err, &websocket.CloseError{}) {
+							s.logger.Error("Client has closed websocket, will delete from session")
+							delete(v, conn)
+						}
 						continue
 					}
 				}
