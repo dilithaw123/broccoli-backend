@@ -65,6 +65,7 @@ func (s *Server) addToSessionMap(sessionId uint64, ws *websocket.Conn) {
 		room[ws] = struct{}{}
 	} else {
 		room := make(map[*websocket.Conn]struct{})
+		room[ws] = struct{}{}
 		s.sessions.room[sessionId] = room
 	}
 }
