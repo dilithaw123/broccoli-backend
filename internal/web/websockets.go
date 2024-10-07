@@ -2,7 +2,6 @@ package web
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -27,7 +26,19 @@ func (s *Server) handleSessionWSConnection() http.HandlerFunc {
 		}
 		s.logger.Info("New websocket connection", "ip", r.RemoteAddr)
 		s.addToSessionMap(sessionId, conn)
-		conn.CloseRead(r.Context())
+		go s.readConn(context.Background(), sessionId, conn)
+	}
+}
+
+func (s *Server) readConn(ctx context.Context, sessionId uint64, conn *websocket.Conn) {
+	for {
+		_, _, err := conn.Read(ctx)
+		if err != nil {
+			s.logger.Info("Closing websocket connection", "error", err)
+			conn.Close(websocket.StatusNormalClosure, "bye")
+			s.removeFromSessionMap(sessionId, conn)
+			return
+		}
 	}
 }
 
@@ -46,13 +57,6 @@ func (s *Server) clientUpdate() {
 					continue
 				}
 				for conn := range v {
-					if err := conn.Ping(ctx); err != nil {
-						if errors.As(err, &websocket.CloseError{}) {
-							s.logger.Error("Client has closed websocket, will delete from session")
-							delete(v, conn)
-						}
-						continue
-					}
 					if err := wsjson.Write(ctx, conn, sub); err != nil {
 						s.logger.Error("Failed to write message", "error", err)
 						continue
@@ -66,14 +70,20 @@ func (s *Server) clientUpdate() {
 	}
 }
 
-func (s *Server) addToSessionMap(sessionId uint64, ws *websocket.Conn) {
+func (s *Server) addToSessionMap(sessionId uint64, conn *websocket.Conn) {
 	s.sessions.Lock()
 	defer s.sessions.Unlock()
 	if room, ok := s.sessions.room[sessionId]; ok {
-		room[ws] = struct{}{}
+		room[conn] = struct{}{}
 	} else {
 		room := make(map[*websocket.Conn]struct{})
-		room[ws] = struct{}{}
+		room[conn] = struct{}{}
 		s.sessions.room[sessionId] = room
 	}
+}
+
+func (s *Server) removeFromSessionMap(sessionId uint64, conn *websocket.Conn) {
+	s.sessions.Lock()
+	defer s.sessions.Unlock()
+	delete(s.sessions.room[sessionId], conn)
 }
