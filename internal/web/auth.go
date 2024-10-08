@@ -7,10 +7,13 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+var chars []rune = []rune("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")
+
 func RandStringRunes(n int) string {
+	length := len(chars)
 	b := make([]rune, n)
 	for i := range b {
-		b[i] = rune(rand.Intn(74) + 48)
+		b[i] = chars[rand.Intn(length)]
 	}
 	return string(b)
 }

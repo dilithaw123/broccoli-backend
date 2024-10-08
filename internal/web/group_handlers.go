@@ -16,11 +16,7 @@ func (s *Server) handleGetUserGroups() http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		bytes, err := json.Marshal(groups)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-		if _, err := w.Write(bytes); err != nil {
+		if err := json.NewEncoder(w).Encode(groups); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	}

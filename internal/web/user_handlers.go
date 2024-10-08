@@ -183,8 +183,7 @@ func (s *Server) handleIsAuthorized() http.HandlerFunc {
 // If user's email exists in map with matching refresh token, send a new access token
 func (s *Server) handleNewAccessToken() http.HandlerFunc {
 	type request struct {
-		Email        string `json:"email"`
-		RefreshToken string `json:"refresh_token"`
+		Email string `json:"email"`
 	}
 	type response struct {
 		AccessToken string `json:"access_token"`
@@ -195,7 +194,12 @@ func (s *Server) handleNewAccessToken() http.HandlerFunc {
 			http.Error(w, "bad request", http.StatusBadRequest)
 			return
 		}
-		if val, ok := s.refTokenMap[req.Email]; !ok || req.RefreshToken != val {
+		refreshToken, err := r.Cookie("refresh_token")
+		if err != nil || refreshToken.Value == "" {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		if val, ok := s.refTokenMap[strings.ToLower(req.Email)]; !ok || refreshToken.Value != val {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
