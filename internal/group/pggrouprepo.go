@@ -31,7 +31,7 @@ func (repo *PgGroupRepo) CreateGroup(ctx context.Context, g Group) error {
 		ctx,
 		conn,
 		&exists,
-		"SELECT 1 FROM groups WHERE name = $1",
+		"SELECT true FROM groups WHERE name = $1",
 		g.Name,
 	)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
