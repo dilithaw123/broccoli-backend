@@ -93,15 +93,47 @@ func (repo *PgSessionRepo) CreateSession(ctx context.Context, s Session) (uint64
 	if id != 0 {
 		return id, nil
 	}
-	err = pgxscan.Get(
+	transaction, err := conn.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	defer transaction.Rollback(ctx)
+	// Session is new, create
+	if err = pgxscan.Get(
 		ctx,
-		conn,
+		transaction,
 		&id,
 		"INSERT INTO sessions (group_id, create_date, shuffle_seed) VALUES ($1, $2, $3) RETURNING id",
 		s.GroupID,
 		s.CreateDate,
 		s.ShuffleSeed,
-	)
+	); err != nil {
+		return 0, err
+	}
+
+	if _, err = transaction.Exec(
+		ctx,
+		`
+		WITH prev_session AS (
+			SELECT id 
+			FROM sessions 
+			WHERE id != $1
+			ORDER BY id DESC 
+			LIMIT 1
+		)
+		INSERT INTO user_submissions (user_id, session_id, yesterday, today, blockers)
+		SELECT user_id, $1, today, '{}', '{}'
+		FROM user_submissions
+		WHERE session_id = (SELECT id FROM prev_session)
+		AND EXISTS (SELECT 1 FROM prev_session);
+		`,
+		id,
+	); err != nil {
+		return id, err
+	}
+
+	err = transaction.Commit(ctx)
 	return id, err
 }
 
