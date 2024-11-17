@@ -119,6 +119,7 @@ func (repo *PgSessionRepo) CreateSession(ctx context.Context, s Session) (uint64
 			SELECT id 
 			FROM sessions 
 			WHERE id != $1
+			AND group_id = $2
 			ORDER BY id DESC 
 			LIMIT 1
 		)
@@ -129,6 +130,7 @@ func (repo *PgSessionRepo) CreateSession(ctx context.Context, s Session) (uint64
 		AND EXISTS (SELECT 1 FROM prev_session);
 		`,
 		id,
+		s.GroupID,
 	); err != nil {
 		return id, err
 	}
