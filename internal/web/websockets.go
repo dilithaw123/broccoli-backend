@@ -35,7 +35,7 @@ func (s *Server) handleSessionWSConnection() http.HandlerFunc {
 	}
 }
 
-func (s *Server) SendUserChange(ctx context.Context, sessionId uint64, userId uint64) error {
+func (s *Server) sendUserChange(ctx context.Context, sessionId uint64, userId uint64) error {
 	s.sessions.Lock()
 	defer s.sessions.Unlock()
 	for conn := range s.sessions.room[sessionId] {
@@ -58,7 +58,7 @@ func (s *Server) readConn(ctx context.Context, sessionId uint64, conn *websocket
 		var v userChange
 		if err := json.Unmarshal(bytes, &v); err != nil {
 			s.logger.Info("User change", "sessionId", sessionId, "userId", v.UserId)
-			s.SendUserChange(ctx, sessionId, v.UserId)
+			s.sendUserChange(ctx, sessionId, v.UserId)
 		}
 	}
 }
