@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
@@ -9,6 +10,10 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 )
+
+type userChange struct {
+	UserId uint64 `json:"user_id"`
+}
 
 func (s *Server) handleSessionWSConnection() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -30,14 +35,30 @@ func (s *Server) handleSessionWSConnection() http.HandlerFunc {
 	}
 }
 
+func (s *Server) SendUserChange(ctx context.Context, sessionId uint64, userId uint64) error {
+	s.sessions.Lock()
+	defer s.sessions.Unlock()
+	for conn := range s.sessions.room[sessionId] {
+		if err := wsjson.Write(ctx, conn, userChange{UserId: userId}); err != nil {
+			continue
+		}
+	}
+	return nil
+}
+
 func (s *Server) readConn(ctx context.Context, sessionId uint64, conn *websocket.Conn) {
 	for {
-		_, _, err := conn.Read(ctx)
+		_, bytes, err := conn.Read(ctx)
 		if err != nil {
 			s.logger.Info("Closing websocket connection", "error", err)
 			conn.Close(websocket.StatusNormalClosure, "bye")
 			s.removeFromSessionMap(sessionId, conn)
 			return
+		}
+		var v userChange
+		if err := json.Unmarshal(bytes, &v); err != nil {
+			s.logger.Info("User change", "sessionId", sessionId, "userId", v.UserId)
+			s.SendUserChange(ctx, sessionId, v.UserId)
 		}
 	}
 }
