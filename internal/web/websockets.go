@@ -56,7 +56,7 @@ func (s *Server) readConn(ctx context.Context, sessionId uint64, conn *websocket
 			return
 		}
 		var v userChange
-		if err := json.Unmarshal(bytes, &v); err != nil {
+		if err := json.Unmarshal(bytes, &v); err == nil {
 			s.logger.Info("User change", "sessionId", sessionId, "userId", v.UserId)
 			s.sendUserChange(ctx, sessionId, v.UserId)
 		}
