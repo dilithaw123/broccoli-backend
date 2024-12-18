@@ -15,4 +15,5 @@ type SessionService interface {
 	GetSessionByGroupID(ctx context.Context, groupID uint64) (Session, error)
 	CreateSession(ctx context.Context, s Session) (uint64, error)
 	UpdateShuffle(ctx context.Context, id uint64, seed uint16) error
+	UserInSession(ctx context.Context, id uint64, email string) (bool, error)
 }

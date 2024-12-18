@@ -153,3 +153,31 @@ func (repo *PgSessionRepo) UpdateShuffle(ctx context.Context, id uint64, seed ui
 	)
 	return err
 }
+
+func (repo *PgSessionRepo) UserInSession(
+	ctx context.Context,
+	id uint64,
+	email string,
+) (bool, error) {
+	conn, err := repo.db.Acquire(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer conn.Release()
+	var exists bool
+	err = pgxscan.Get(
+		ctx,
+		conn,
+		&exists,
+		`
+			SELECT true
+			FROM sessions s
+			JOIN groups g ON s.group_id = g.id
+			WHERE s.id = $1
+			AND $2 = ANY(g.allowed_emails);
+		`,
+		id,
+		email,
+	)
+	return exists, err
+}

@@ -160,7 +160,7 @@ func (s *Server) handleLoginSignUp() http.HandlerFunc {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		refreshToken := GenerateRefreshToken()
-		accessToken := GenerateAccessToken(s.secretKey)
+		accessToken := GenerateAccessToken(u.Email, s.secretKey)
 		s.refTokenMap[u.Email] = refreshToken
 		resp := loginResponse{
 			User:         u,
@@ -194,16 +194,17 @@ func (s *Server) handleNewAccessToken() http.HandlerFunc {
 			http.Error(w, "bad request", http.StatusBadRequest)
 			return
 		}
+		req.Email = strings.ToLower(req.Email)
 		refreshToken, err := r.Cookie("refresh_token")
 		if err != nil || refreshToken.Value == "" {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
-		if val, ok := s.refTokenMap[strings.ToLower(req.Email)]; !ok || refreshToken.Value != val {
+		if val, ok := s.refTokenMap[req.Email]; !ok || refreshToken.Value != val {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
-		resp := response{AccessToken: GenerateAccessToken(s.secretKey)}
+		resp := response{AccessToken: GenerateAccessToken(req.Email, s.secretKey)}
 		if err := json.NewEncoder(w).Encode(resp); err != nil {
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 		}

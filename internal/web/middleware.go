@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"net/http"
 )
 
@@ -20,7 +21,8 @@ func (s *Server) MiddlewareAuth(next http.Handler) http.Handler {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
-		if !ParseAndValidateToken(authcookie.Value, s.secretKey) {
+		token, valid := ParseAndValidateToken(authcookie.Value, s.secretKey)
+		if !valid {
 			s.logger.Info(
 				"Unauthorized access token",
 				"ip",
@@ -31,6 +33,15 @@ func (s *Server) MiddlewareAuth(next http.Handler) http.Handler {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
+		claims := token.Claims.(*CustomClaims)
+		switch {
+		case claims.Email == "":
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		ctx := r.Context()
+		ctx = context.WithValue(ctx, "email", claims.Email)
+		r = r.WithContext(ctx)
 		next.ServeHTTP(w, r)
 	})
 }

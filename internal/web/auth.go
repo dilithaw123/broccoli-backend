@@ -7,6 +7,11 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+type CustomClaims struct {
+	jwt.RegisteredClaims
+	Email string `json:"email"`
+}
+
 var chars []rune = []rune("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")
 
 func RandStringRunes(n int) string {
@@ -22,10 +27,13 @@ func GenerateRefreshToken() string {
 	return RandStringRunes(32)
 }
 
-func GenerateAccessToken(secret string) string {
+func GenerateAccessToken(email, secret string) string {
 	expirationTime := time.Now().Add(time.Hour).UTC()
-	claims := &jwt.RegisteredClaims{
-		ExpiresAt: jwt.NewNumericDate(expirationTime),
+	claims := &CustomClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(expirationTime),
+		},
+		Email: email,
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, _ := token.SignedString([]byte(secret))
@@ -50,10 +58,10 @@ func validateToken(token *jwt.Token) bool {
 	return token.Valid
 }
 
-func ParseAndValidateToken(tokenString string, secret string) bool {
+func ParseAndValidateToken(tokenString string, secret string) (*jwt.Token, bool) {
 	token, err := parseAccessToken(tokenString, secret)
 	if err != nil {
-		return false
+		return token, false
 	}
-	return validateToken(token)
+	return token, validateToken(token)
 }

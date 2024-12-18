@@ -24,7 +24,11 @@ func (s *Server) handleSessionWSConnection() http.HandlerFunc {
 			http.Error(w, "missing session_id parameter", http.StatusBadRequest)
 			return
 		}
-		conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{})
+		conn, err := websocket.Accept(
+			w,
+			r,
+			&websocket.AcceptOptions{OriginPatterns: []string{"broccoli.buzz"}},
+		)
 		if err != nil {
 			s.logger.Error("Failed to upgrade connection", "error", err)
 			return
