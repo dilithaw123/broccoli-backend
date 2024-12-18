@@ -82,6 +82,16 @@ func (s *Server) handlePostUserSubmission() http.HandlerFunc {
 			http.Error(w, "invalid JSON", http.StatusBadRequest)
 			return
 		}
+		email := r.Context().Value("email").(string)
+		exists, err := s.sessionService.UserInSession(r.Context(), sub.SessionId, email)
+		if err != nil {
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+		if !exists {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
 		if err := s.userService.CreateUpdateUserSubmission(r.Context(), sub); err != nil {
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
