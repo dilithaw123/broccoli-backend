@@ -91,9 +91,19 @@ func (s *Server) handlePostUserSubmission() http.HandlerFunc {
 
 func (s *Server) handleGetUserSubmission() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		session_id, err := strconv.ParseUint(r.URL.Query().Get("session_id"), 10, 64)
+		sessionId, err := strconv.ParseUint(r.URL.Query().Get("session_id"), 10, 64)
 		if err != nil {
 			http.Error(w, "missing session_id parameter", http.StatusBadRequest)
+			return
+		}
+		email := r.Context().Value("email").(string)
+		exists, err := s.sessionService.UserInSession(r.Context(), sessionId, email)
+		if err != nil {
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+		if !exists {
+			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
 		var sub interface{}
@@ -103,7 +113,7 @@ func (s *Server) handleGetUserSubmission() http.HandlerFunc {
 				http.Error(w, "missing user_id parameter", http.StatusBadRequest)
 				return
 			}
-			sub, err = s.userService.GetUserSubmission(r.Context(), user_id, session_id)
+			sub, err = s.userService.GetUserSubmission(r.Context(), user_id, sessionId)
 			if err != nil {
 				if err == user.ErrorUserSubmissionNotFound {
 					http.Error(w, "user submission not found", http.StatusNotFound)
@@ -113,7 +123,7 @@ func (s *Server) handleGetUserSubmission() http.HandlerFunc {
 				return
 			}
 		} else {
-			sub, err = s.userService.GetAllUserSubmissionsForSession(r.Context(), session_id)
+			sub, err = s.userService.GetAllUserSubmissionsForSession(r.Context(), sessionId)
 			if err != nil {
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 				return

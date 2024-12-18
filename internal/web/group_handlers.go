@@ -96,7 +96,8 @@ func (s *Server) handleDeleteGroup() http.HandlerFunc {
 			http.Error(w, "Bad request body", http.StatusBadRequest)
 			return
 		}
-		if err := s.groupService.DeleteGroup(r.Context(), req.GroupId, strings.ToLower(req.UserEmail)); err != nil {
+		req.UserEmail = strings.ToLower(req.UserEmail)
+		if err := s.groupService.DeleteGroup(r.Context(), req.GroupId, req.UserEmail); err != nil {
 			switch err {
 			case group.ErrGroupNotFound:
 				http.Error(w, "Group not found", http.StatusNotFound)
