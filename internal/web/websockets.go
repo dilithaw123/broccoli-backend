@@ -24,6 +24,18 @@ func (s *Server) handleSessionWSConnection() http.HandlerFunc {
 			http.Error(w, "missing session_id parameter", http.StatusBadRequest)
 			return
 		}
+		email := r.Context().Value("email").(string)
+		exists, err := s.sessionService.UserInSession(r.Context(), sessionId, email)
+		if err != nil {
+			s.logger.Error("Failed to check if user is in session", "error", err)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+		if !exists {
+			s.logger.Info("User not in session", "sessionId", sessionId, "email", email)
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
 		conn, err := websocket.Accept(
 			w,
 			r,
